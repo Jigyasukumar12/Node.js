@@ -1,8 +1,8 @@
-# 📘 Phase 1: Foundations
+# 📘 Phase 2: Modern Patterns
 
-> **Goal:** Understand how Node.js organizes code and handles basic async operations  
-> **Duration:** 2-3 days  
-> **Prerequisites:** Basic JavaScript knowledge
+> **Goal:** Master modern JavaScript async patterns and ES Modules  
+> **Duration:** 3-4 days  
+> **Prerequisites:** Completed Phase 1
 
 ---
 
@@ -10,445 +10,688 @@
 
 | Topic | Concepts |
 |-------|----------|
-| CommonJS Modules | `require()`, `module.exports`, `exports` |
-| Built-in Modules | `fs`, `path`, `os` |
-| Callbacks | Error-first pattern, async basics |
-| Environment Variables | `process.env` basics |
+| ES Modules | `import`, `export`, dynamic imports |
+| Promises | Creating, chaining, `Promise.all/race/allSettled` |
+| Async/Await | Modern syntax, error handling |
+| Configuration | dotenv, environment-based config |
 
 ---
 
-## 1️⃣ CommonJS Modules (CJS)
+## 1️⃣ ES Modules (ESM)
 
-### What is it?
-CommonJS is Node.js's original module system. It lets you split your code into separate files and share functionality between them.
+### What Changed?
+ES Modules are the official JavaScript module system (standardized in ES6). Node.js now fully supports them!
 
-### The Core Concept
+### Enabling ES Modules
 
+**Option 1:** Use `.mjs` extension
 ```javascript
-// ─────────────────────────────────────
-// math.js - Exporting functionality
-// ─────────────────────────────────────
-function add(a, b) {
+// math.mjs - treated as ES Module
+export function add(a, b) {
   return a + b;
 }
+```
 
-function subtract(a, b) {
-  return a - b;
+**Option 2:** Set `"type": "module"` in package.json (Recommended)
+```json
+{
+  "name": "my-app",
+  "type": "module"
+}
+```
+
+### Basic Syntax
+
+```javascript
+// ─────────────────────────────────────
+// utils.js - Named Exports
+// ─────────────────────────────────────
+export function formatDate(date) {
+  return date.toISOString().split('T')[0];
 }
 
-// Export functions for other files to use
-module.exports = {
-  add,
-  subtract
-};
+export function capitalize(str) {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+export const VERSION = '1.0.0';
 ```
 
 ```javascript
 // ─────────────────────────────────────
-// app.js - Importing functionality
+// app.js - Named Imports
 // ─────────────────────────────────────
-const math = require('./math');  // .js extension is optional
+import { formatDate, capitalize, VERSION } from './utils.js';
+// Note: .js extension is REQUIRED in ESM!
 
-console.log(math.add(5, 3));      // 8
-console.log(math.subtract(10, 4)); // 6
+console.log(formatDate(new Date()));
+console.log(capitalize('hello'));
+console.log(VERSION);
 ```
 
-### Different Export Styles
+### Default Exports
 
 ```javascript
-// Style 1: Export an object
-module.exports = { add, subtract };
+// ─────────────────────────────────────
+// database.js - Default Export
+// ─────────────────────────────────────
+class Database {
+  connect() { /* ... */ }
+  query(sql) { /* ... */ }
+}
 
-// Style 2: Export a single function
-module.exports = function greet(name) {
-  return `Hello, ${name}!`;
-};
-
-// Style 3: Add properties to exports
-exports.add = add;
-exports.subtract = subtract;
-// ⚠️ Don't do: exports = { add } - This breaks the reference!
+export default Database;
 ```
+
+```javascript
+// ─────────────────────────────────────
+// app.js - Default Import
+// ─────────────────────────────────────
+import Database from './database.js';
+// Can use any name for default imports
+
+const db = new Database();
+db.connect();
+```
+
+### Combining Default and Named
+
+```javascript
+// ─────────────────────────────────────
+// api.js
+// ─────────────────────────────────────
+export default class ApiClient { /* ... */ }
+export const BASE_URL = 'https://api.example.com';
+export function handleError(err) { /* ... */ }
+
+// ─────────────────────────────────────
+// app.js
+// ─────────────────────────────────────
+import ApiClient, { BASE_URL, handleError } from './api.js';
+```
+
+### Dynamic Imports (Code Splitting)
+
+```javascript
+// Load modules conditionally at runtime
+async function loadFeature(featureName) {
+  if (featureName === 'charts') {
+    const { renderChart } = await import('./features/charts.js');
+    renderChart();
+  } else if (featureName === 'reports') {
+    const { generateReport } = await import('./features/reports.js');
+    generateReport();
+  }
+}
+```
+
+### Key Differences: CJS vs ESM
+
+| Feature | CommonJS | ES Modules |
+|---------|----------|------------|
+| Syntax | `require()` / `module.exports` | `import` / `export` |
+| Loading | Synchronous | Asynchronous |
+| File Extension | `.js` optional | `.js` required |
+| this | `module.exports` | `undefined` |
+| Dynamic | `require(variable)` works | Need `import()` |
+| Top-level await | ❌ Not allowed | ✅ Allowed |
 
 ### 🎯 Why This Matters in Real Projects
 
-| Scenario | How Modules Help |
-|----------|------------------|
-| **Express APIs** | Separate routes into different files |
-| **Database Logic** | Keep database queries isolated |
-| **Utilities** | Create reusable helper functions |
-| **Config** | Manage configuration in dedicated files |
+| Scenario | Benefit |
+|----------|---------|
+| **Modern Frameworks** | Most new packages use ESM |
+| **Tree Shaking** | Bundlers can remove unused code |
+| **Browser Compatibility** | Same syntax works in browsers |
+| **Top-level Await** | Cleaner initialization code |
 
 ### 💼 Interview Relevance
 
 **Common Questions:**
-- What's the difference between `module.exports` and `exports`?
-- How does Node.js resolve module paths?
-- What happens when you require the same module twice?
-
-**Expected Answer:** `exports` is a reference to `module.exports`. If you reassign `exports`, you break this reference. Always use `module.exports` for clarity.
+- What are the differences between CommonJS and ES Modules?
+- How do you use ESM in Node.js?
+- What is dynamic import and when would you use it?
 
 ---
 
-## 2️⃣ Built-in Modules
+## 2️⃣ Promises
 
-Node.js comes with powerful built-in modules. No npm install needed!
+### What is a Promise?
+A Promise represents a value that may be available now, later, or never.
 
-### `fs` - File System
-
-```javascript
-const fs = require('fs');
-
-// ─────────────────────────────────────
-// SYNC (Blocking) - Avoid in production
-// ─────────────────────────────────────
-const data = fs.readFileSync('config.txt', 'utf8');
-console.log(data);
-
-// ─────────────────────────────────────
-// ASYNC (Non-blocking) - Preferred!
-// ─────────────────────────────────────
-fs.readFile('config.txt', 'utf8', (err, data) => {
-  if (err) {
-    console.error('Failed to read file:', err.message);
-    return;
-  }
-  console.log(data);
-});
-
-// ─────────────────────────────────────
-// Writing files
-// ─────────────────────────────────────
-fs.writeFile('output.txt', 'Hello World', (err) => {
-  if (err) throw err;
-  console.log('File saved!');
-});
+### Promise States
+```
+┌─────────────┐
+│   PENDING   │ ─── Initial state
+└──────┬──────┘
+       │
+       ├──────────────┐
+       ▼              ▼
+┌─────────────┐ ┌─────────────┐
+│  FULFILLED  │ │  REJECTED   │
+│  (resolved) │ │  (error)    │
+└─────────────┘ └─────────────┘
 ```
 
-### `path` - Path Manipulation
+### Creating Promises
 
 ```javascript
-const path = require('path');
-
-// Join path segments (handles OS differences)
-const filePath = path.join(__dirname, 'data', 'users.json');
-// Windows: C:\project\data\users.json
-// Linux:   /project/data/users.json
-
-// Get file information
-console.log(path.basename('/users/config.json'));  // 'config.json'
-console.log(path.extname('report.pdf'));           // '.pdf'
-console.log(path.dirname('/users/data/file.txt')); // '/users/data'
-
-// Resolve to absolute path
-console.log(path.resolve('src', 'index.js'));
-```
-
-### `os` - Operating System Info
-
-```javascript
-const os = require('os');
-
-console.log(os.platform());   // 'win32', 'linux', 'darwin'
-console.log(os.cpus().length); // Number of CPU cores
-console.log(os.totalmem());    // Total system memory
-console.log(os.homedir());     // User's home directory
-console.log(os.tmpdir());      // Temp directory path
-```
-
-### 🎯 Why This Matters in Real Projects
-
-| Module | Real Use Case |
-|--------|---------------|
-| `fs` | Reading config files, logging, file uploads |
-| `path` | Safe file path construction, avoiding hardcoded paths |
-| `os` | Health checks, system-aware configurations |
-
-### 💼 Interview Relevance
-
-**Common Questions:**
-- Why should we avoid sync file operations?
-- What's the difference between `__dirname` and `process.cwd()`?
-- How do you handle file paths across different operating systems?
-
----
-
-## 3️⃣ Callbacks & Error-First Pattern
-
-### What is a Callback?
-A callback is a function passed as an argument to another function, to be executed later.
-
-### The Error-First Convention
-
-Node.js established a convention: **the first argument of a callback is always the error**.
-
-```javascript
-const fs = require('fs');
-
-fs.readFile('data.txt', 'utf8', (err, data) => {
-  // err is the FIRST argument (null if no error)
-  // data is the SECOND argument (result if success)
-  
-  if (err) {
-    console.error('Error:', err.message);
-    return; // Stop execution here!
-  }
-  
-  console.log('File content:', data);
-});
-```
-
-### Why Error-First?
-
-```javascript
-// ✅ Consistent pattern across ALL Node.js async operations
-fs.readFile('file.txt', (err, data) => { /* ... */ });
-fs.writeFile('file.txt', content, (err) => { /* ... */ });
-fs.mkdir('folder', (err) => { /* ... */ });
-
-// You always know: check err first, then use result
-```
-
-### Creating Your Own Async Functions
-
-```javascript
-function fetchUserData(userId, callback) {
-  // Simulate database call
-  setTimeout(() => {
-    if (!userId) {
-      // Error-first: pass error as first argument
-      callback(new Error('User ID is required'), null);
-      return;
-    }
-    
-    const user = { id: userId, name: 'John Doe' };
-    // Success: pass null as error, data as second argument
-    callback(null, user);
-  }, 1000);
+// ─────────────────────────────────────
+// Basic Promise Creation
+// ─────────────────────────────────────
+function fetchUser(userId) {
+  return new Promise((resolve, reject) => {
+    // Simulate async operation
+    setTimeout(() => {
+      if (userId <= 0) {
+        reject(new Error('Invalid user ID'));
+        return;
+      }
+      
+      resolve({ id: userId, name: 'John Doe' });
+    }, 1000);
+  });
 }
 
 // Usage
-fetchUserData(123, (err, user) => {
-  if (err) {
-    console.error('Failed:', err.message);
-    return;
-  }
-  console.log('User:', user);
-});
+fetchUser(123)
+  .then(user => console.log('User:', user))
+  .catch(err => console.error('Error:', err.message));
 ```
 
-### ⚠️ Callback Hell (What to Avoid)
+### Promise Chaining
 
 ```javascript
-// 😱 This is hard to read and maintain
-fs.readFile('file1.txt', (err, data1) => {
-  if (err) return console.error(err);
-  fs.readFile('file2.txt', (err, data2) => {
-    if (err) return console.error(err);
-    fs.readFile('file3.txt', (err, data3) => {
-      if (err) return console.error(err);
-      // Deep nesting = callback hell!
+fetchUser(123)
+  .then(user => {
+    console.log('Got user:', user.name);
+    return fetchUserPosts(user.id); // Return another promise
+  })
+  .then(posts => {
+    console.log('Got posts:', posts.length);
+    return fetchComments(posts[0].id);
+  })
+  .then(comments => {
+    console.log('Got comments:', comments);
+  })
+  .catch(err => {
+    // Catches error from ANY step above
+    console.error('Something failed:', err.message);
+  })
+  .finally(() => {
+    // Always runs, regardless of success/failure
+    console.log('Cleanup complete');
+  });
+```
+
+### Promise Static Methods
+
+```javascript
+// ─────────────────────────────────────
+// Promise.all - Wait for ALL to complete
+// ─────────────────────────────────────
+const userPromise = fetchUser(1);
+const postsPromise = fetchPosts(1);
+const settingsPromise = fetchSettings(1);
+
+Promise.all([userPromise, postsPromise, settingsPromise])
+  .then(([user, posts, settings]) => {
+    console.log('All data loaded:', user, posts, settings);
+  })
+  .catch(err => {
+    // If ANY promise fails, catch is called
+    console.error('One of them failed:', err);
+  });
+```
+
+```javascript
+// ─────────────────────────────────────
+// Promise.allSettled - Get all results regardless of failure
+// ─────────────────────────────────────
+Promise.allSettled([fetchUser(1), fetchUser(-1), fetchUser(2)])
+  .then(results => {
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        console.log(`User ${index}: ${result.value.name}`);
+      } else {
+        console.log(`User ${index} failed: ${result.reason.message}`);
+      }
     });
   });
-});
+```
+
+```javascript
+// ─────────────────────────────────────
+// Promise.race - First to complete wins
+// ─────────────────────────────────────
+const timeout = new Promise((_, reject) => 
+  setTimeout(() => reject(new Error('Timeout!')), 5000)
+);
+
+Promise.race([fetchUser(1), timeout])
+  .then(user => console.log('Got user before timeout:', user))
+  .catch(err => console.error(err.message));
+```
+
+```javascript
+// ─────────────────────────────────────
+// Promise.any - First SUCCESS wins (ignores rejections)
+// ─────────────────────────────────────
+Promise.any([
+  fetchFromServer1(),
+  fetchFromServer2(),
+  fetchFromServer3()
+])
+  .then(result => console.log('First successful:', result))
+  .catch(err => console.log('All failed'));
 ```
 
 ### 💼 Interview Relevance
 
 **Common Questions:**
-- What is callback hell and how do you avoid it?
-- Why does Node.js use error-first callbacks?
-- What's the problem with returning inside a callback?
-
-**Expected Answer:** Callback hell can be avoided using Promises or async/await (Phase 2). Error-first is a convention that ensures consistent error handling across the ecosystem.
+- What's the difference between `Promise.all` and `Promise.allSettled`?
+- How do you implement a timeout with promises?
+- What happens if one promise in `Promise.all` fails?
 
 ---
 
-## 4️⃣ Environment Variables Basics
+## 3️⃣ Async/Await
 
-### What are Environment Variables?
-Configuration values set **outside** your code, passed to your application at runtime.
+### The Modern Way
+Async/await is syntactic sugar over Promises, making async code look synchronous.
 
-### Accessing via `process.env`
-
-```javascript
-// process.env is a global object containing all env variables
-console.log(process.env.NODE_ENV);  // 'development' or 'production'
-console.log(process.env.PORT);       // '3000' (always a string!)
-console.log(process.env.PATH);       // System PATH variable
-```
-
-### Setting Environment Variables
-
-```bash
-# Windows (PowerShell)
-$env:PORT="3000"; node app.js
-
-# Windows (CMD)
-set PORT=3000 && node app.js
-
-# Linux/Mac
-PORT=3000 node app.js
-
-# Or inline (Linux/Mac)
-NODE_ENV=production node app.js
-```
-
-### Basic Usage Pattern
+### Basic Syntax
 
 ```javascript
-// app.js
-const port = process.env.PORT || 3000;  // Default if not set
-const env = process.env.NODE_ENV || 'development';
+// ─────────────────────────────────────
+// Compare Promise .then() vs async/await
+// ─────────────────────────────────────
 
-console.log(`Running on port ${port} in ${env} mode`);
+// Promise style
+function getUser(id) {
+  return fetchUser(id)
+    .then(user => fetchUserPosts(user.id))
+    .then(posts => posts);
+}
+
+// Async/await style (cleaner!)
+async function getUser(id) {
+  const user = await fetchUser(id);
+  const posts = await fetchUserPosts(user.id);
+  return posts;
+}
 ```
 
-### ⚠️ Important: Env Vars are Always Strings!
+### Error Handling
 
 ```javascript
-// 🚫 Common mistake
-process.env.PORT = 3000;
-console.log(typeof process.env.PORT); // 'string', not 'number'!
-
-// ✅ Convert when needed
-const port = parseInt(process.env.PORT, 10) || 3000;
-const isDebug = process.env.DEBUG === 'true';  // String comparison
+// ─────────────────────────────────────
+// try/catch for async/await
+// ─────────────────────────────────────
+async function loadUserData(userId) {
+  try {
+    const user = await fetchUser(userId);
+    const posts = await fetchPosts(user.id);
+    return { user, posts };
+  } catch (error) {
+    console.error('Failed to load data:', error.message);
+    throw error; // Re-throw if needed
+  } finally {
+    console.log('Cleanup');
+  }
+}
 ```
 
-### 🎯 Why This Matters in Real Projects
+### Parallel Execution
 
-| Use Case | Example |
-|----------|---------|
-| **Different Environments** | Dev vs Production database URLs |
-| **Secrets** | API keys, database passwords |
-| **Feature Flags** | Enable/disable features |
-| **Configuration** | Port numbers, timeout values |
+```javascript
+// ❌ WRONG: Sequential (slow)
+async function loadData() {
+  const users = await fetchUsers();    // Wait 1 second
+  const products = await fetchProducts(); // Wait 1 second
+  const orders = await fetchOrders();     // Wait 1 second
+  // Total: 3 seconds
+}
+
+// ✅ CORRECT: Parallel (fast)
+async function loadData() {
+  const [users, products, orders] = await Promise.all([
+    fetchUsers(),
+    fetchProducts(),
+    fetchOrders()
+  ]);
+  // Total: 1 second (parallel)
+}
+```
+
+### fs.promises - Modern File Operations
+
+```javascript
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import path from 'path';
+
+async function processFile(filename) {
+  try {
+    // Read file
+    const content = await readFile(filename, 'utf8');
+    
+    // Process content
+    const processed = content.toUpperCase();
+    
+    // Ensure output directory exists
+    await mkdir('output', { recursive: true });
+    
+    // Write result
+    const outputPath = path.join('output', 'result.txt');
+    await writeFile(outputPath, processed);
+    
+    console.log('File processed successfully!');
+  } catch (error) {
+    if (error.code === 'ENOENT') {
+      console.error('File not found:', filename);
+    } else {
+      throw error;
+    }
+  }
+}
+```
+
+### Top-Level Await (ESM only)
+
+```javascript
+// config.js (ES Module)
+import { readFile } from 'fs/promises';
+
+// Can use await at the top level!
+const configData = await readFile('config.json', 'utf8');
+export const config = JSON.parse(configData);
+```
+
+### 🎯 Real-World Example: API Call
+
+```javascript
+async function fetchWithRetry(url, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.log(`Attempt ${attempt} failed:`, error.message);
+      if (attempt === maxRetries) throw error;
+      // Wait before retrying (exponential backoff)
+      await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+}
+```
 
 ### 💼 Interview Relevance
 
 **Common Questions:**
-- Why use environment variables instead of hardcoding?
-- How do you handle different configs for dev vs production?
-- What's the security benefit of environment variables?
+- What's the difference between Promises and async/await?
+- How do you run multiple async operations in parallel?
+- How do you handle errors in async/await?
+- Can you use await outside an async function?
+
+---
+
+## 4️⃣ dotenv & Configuration Management
+
+### Why dotenv?
+Setting environment variables manually is tedious. dotenv loads variables from a `.env` file automatically.
+
+### Setup
+
+```bash
+npm init -y
+npm install dotenv
+```
+
+### Using dotenv
+
+```
+📁 project/
+├── .env              (your secrets - NEVER commit!)
+├── .env.example      (template - safe to commit)
+├── .gitignore        (must include .env)
+├── config.js
+└── app.js
+```
+
+```env
+# .env
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=mongodb://localhost:27017/myapp
+API_KEY=sk-secret-key-12345
+DEBUG=true
+```
+
+```env
+# .env.example (safe to commit)
+NODE_ENV=development
+PORT=3000
+DATABASE_URL=mongodb://localhost:27017/myapp
+API_KEY=your-api-key-here
+DEBUG=false
+```
+
+```javascript
+// config.js
+import 'dotenv/config';  // Load .env file
+
+export const config = {
+  nodeEnv: process.env.NODE_ENV || 'development',
+  port: parseInt(process.env.PORT, 10) || 3000,
+  databaseUrl: process.env.DATABASE_URL,
+  apiKey: process.env.API_KEY,
+  debug: process.env.DEBUG === 'true'
+};
+
+// Validate required variables
+const required = ['DATABASE_URL', 'API_KEY'];
+for (const key of required) {
+  if (!process.env[key]) {
+    throw new Error(`Missing required env variable: ${key}`);
+  }
+}
+```
+
+```javascript
+// app.js
+import { config } from './config.js';
+
+console.log('Environment:', config.nodeEnv);
+console.log('Port:', config.port);
+console.log('Debug mode:', config.debug);
+```
+
+### Environment-Based Configuration
+
+```javascript
+// config.js - Advanced pattern
+import 'dotenv/config';
+
+const baseConfig = {
+  appName: 'MyApp',
+  port: parseInt(process.env.PORT, 10) || 3000,
+};
+
+const envConfigs = {
+  development: {
+    dbUrl: 'mongodb://localhost:27017/dev',
+    logLevel: 'debug',
+    apiUrl: 'http://localhost:3001'
+  },
+  production: {
+    dbUrl: process.env.DATABASE_URL,
+    logLevel: 'error',
+    apiUrl: 'https://api.myapp.com'
+  },
+  test: {
+    dbUrl: 'mongodb://localhost:27017/test',
+    logLevel: 'silent',
+    apiUrl: 'http://localhost:3001'
+  }
+};
+
+const env = process.env.NODE_ENV || 'development';
+export const config = { ...baseConfig, ...envConfigs[env] };
+```
+
+### 🛡️ Security Best Practices
+
+```gitignore
+# .gitignore - ALWAYS include these
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+```
+
+```javascript
+// Never log secrets!
+console.log('Config loaded for:', config.nodeEnv);
+// ❌ console.log('API Key:', config.apiKey);
+```
+
+### 💼 Interview Relevance
+
+**Common Questions:**
+- How do you manage configuration in Node.js?
+- Why shouldn't you commit .env files?
+- How do you handle different configs for different environments?
 
 ---
 
 ## 🧪 Practice Tasks
 
-### Task 1: Module Organization
-**Create a simple calculator module**
+### Task 1: ES Module Refactor
+**Convert a CommonJS project to ES Modules**
 
 ```
 📁 task-1/
-├── calculator.js   (export add, subtract, multiply, divide)
-└── app.js          (import and use all operations)
+├── package.json      (add "type": "module")
+├── utils/
+│   ├── strings.js    (export: capitalize, slugify, truncate)
+│   └── arrays.js     (export: unique, shuffle, chunk)
+└── app.js            (import and use all utils)
 ```
 
 **Requirements:**
-- Export all 4 operations from calculator.js
-- Handle division by zero (return 'Error: Division by zero')
-- Use the calculator in app.js to perform various calculations
+- Use named exports in utility files
+- Create `index.js` that re-exports all utilities
+- Use proper `.js` extensions in imports
 
 ---
 
-### Task 2: File Operations
-**Create a simple note-taking app (CLI)**
+### Task 2: Promise-Based File Processor
+**Create a file processor using promises**
 
 ```
 📁 task-2/
-└── notes.js
+├── processor.js
+└── data/
+    └── input.txt
 ```
 
 **Requirements:**
-- Use `fs` to save notes to `notes.txt`
-- Accept action via command line: `node notes.js add "My note"`
-- Actions: `add`, `list`, `clear`
-- Use error-first callbacks
-
-**Example usage:**
-```bash
-node notes.js add "Buy groceries"
-node notes.js add "Call mom"
-node notes.js list
-node notes.js clear
-```
+- Read a text file
+- Count words, lines, and characters
+- Write stats to `stats.json`
+- Use `fs/promises` (not callbacks)
+- Handle file not found gracefully
 
 ---
 
-### Task 3: System Info Reporter
-**Create a system info module**
+### Task 3: Parallel Data Fetcher
+**Fetch data from multiple sources in parallel**
 
 ```
 📁 task-3/
-├── sysinfo.js     (module with functions)
-└── report.js      (generates report)
+├── fetcher.js
+└── app.js
 ```
 
 **Requirements:**
-- Create functions: `getPlatform()`, `getCpuCount()`, `getMemoryGB()`, `getTempPath()`
-- Export all functions from sysinfo.js
-- In report.js, generate a formatted system report
-- Save the report to `system-report.txt` using fs
+- Create functions that simulate API calls (use setTimeout)
+  - `fetchUser(id)` - returns after 1 second
+  - `fetchPosts(userId)` - returns after 1.5 seconds
+  - `fetchComments(postId)` - returns after 0.5 seconds
+- Use `Promise.all` to fetch user, posts, and comments in parallel
+- Add a timeout: if it takes more than 3 seconds, reject
+- Use `Promise.allSettled` to handle partial failures
 
 ---
 
-### Task 4: Environment-Aware App
-**Create an app that behaves differently based on environment**
+### Task 4: Configuration System
+**Build a complete configuration system**
 
 ```
 📁 task-4/
-├── config.js      (read env variables)
-└── app.js         (use config)
+├── .env
+├── .env.example
+├── .gitignore
+├── config/
+│   └── index.js
+└── app.js
 ```
 
 **Requirements:**
-- Read `NODE_ENV`, `PORT`, and `APP_NAME` from environment
-- Provide default values if not set
-- Log different messages based on NODE_ENV
-- Test by running with different env variables
+- Use dotenv
+- Create configs for: development, production, test
+- Validate required variables at startup
+- Type-convert appropriately (string → number, boolean)
+- Create `.env.example` template
 
-**Example:**
-```bash
-# PowerShell
-$env:NODE_ENV="production"; $env:PORT="8080"; node app.js
-```
+**Config should include:**
+- PORT, NODE_ENV, LOG_LEVEL
+- DATABASE_HOST, DATABASE_PORT, DATABASE_NAME
+- API_SECRET (required!)
 
 ---
 
-### Task 5: Combined Challenge
-**Build a "Daily Logger" application**
+### Task 5: Async File Sync Tool
+**Build a folder sync utility**
 
 ```
 📁 task-5/
-├── logger.js      (module for logging)
-├── fileManager.js (module for file operations)
-├── app.js         (main application)
-└── logs/          (directory for log files)
+├── sync.js
+├── source/
+│   ├── file1.txt
+│   └── file2.txt
+└── backup/
 ```
 
 **Requirements:**
-- `logger.js`: Export functions `logInfo()`, `logError()`, `logWarning()`
-- `fileManager.js`: Export functions to read/write/append to files
-- Log format: `[TIMESTAMP] [LEVEL] Message`
-- Create daily log files: `log-2024-01-15.txt`
-- Use `path.join()` for file paths
-- Read LOG_LEVEL from environment (default: 'info')
+- Use ES Modules
+- Read all files from `source/` directory
+- Copy each file to `backup/` with timestamp prefix
+  - Example: `2024-01-15_file1.txt`
+- Use async/await with `fs/promises`
+- Run copy operations in parallel
+- Log progress for each file
+- Handle errors gracefully
 
 ---
 
-## ✅ Phase 1 Checklist
+## ✅ Phase 2 Checklist
 
-Before moving to Phase 2, make sure you can:
+Before moving to Phase 3, make sure you can:
 
-- [ ] Create and export modules using CommonJS
-- [ ] Import modules using `require()`
-- [ ] Read/write files using `fs` with callbacks
-- [ ] Construct file paths safely with `path.join()`
-- [ ] Understand error-first callback pattern
-- [ ] Access environment variables via `process.env`
-- [ ] Provide default values for env variables
+- [ ] Create and use ES Modules with import/export
+- [ ] Understand when to use default vs named exports
+- [ ] Create and chain Promises
+- [ ] Use Promise.all, Promise.race, Promise.allSettled
+- [ ] Write async/await code with proper error handling
+- [ ] Use fs/promises for modern file operations
+- [ ] Set up dotenv for environment configuration
+- [ ] Create environment-based config patterns
 
 ---
 
-*Next: [Phase 2: Modern Patterns →](../phase-2/README.md)*
+*Next: [Phase 3: Intermediate Concepts →](../phase-3/README.md)*
