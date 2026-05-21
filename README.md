@@ -133,4 +133,4 @@
 
 ---
 
-*Ready Start with [Phase 1: Foundations](./phase-1/README.md) →*
+* Start with [Phase 1: Foundations](./phase-1/README.md) →*
