@@ -958,4 +958,4 @@ Combine everything you've learned:
 
 ---
 
-*Good luck with your interviews and projects! 🚀*
+*Good luck with your interviews and projects 🚀*
